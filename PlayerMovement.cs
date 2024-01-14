@@ -1,3 +1,4 @@
+using UnityEditor.Rendering.LookDev;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -10,10 +11,10 @@ public class PlayerMovement : MonoBehaviour
     CharacterController characterController;
     private Vector3 velocity;
     private Vector3 direction;
-    [SerializeField] private float moveSpeed = 5f;
-    [SerializeField] public float runSpeed = 8f;
-    [SerializeField] public float walkSpeed = 2.5f;
-    [SerializeField] public float crouchSpeed = 1.5f;
+    [SerializeField] private float moveSpeed = 6f;
+    [SerializeField] public float runSpeed = 9f;
+    [SerializeField] public float walkSpeed = 3f;
+    [SerializeField] public float crouchSpeed = 2f;
 
     private float currentSpeed;
     [SerializeField] public float speedChangeRate = 1.7f;
@@ -42,11 +43,11 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Walk.canceled += OnWalk;
         playercontrols.Player.Crouch.started += OnCrouch;
         playercontrols.Player.Crouch.canceled += OnCrouch;
+        playercontrols.Player.Jump.started += OnJump;
     }
 
     private void Start()
     {
-        velocity.y = groundGravity;
 
 
     }
@@ -58,15 +59,10 @@ public class PlayerMovement : MonoBehaviour
     {
         playercontrols.Disable();
     }
-    public void Input()
-    {
-        input = playercontrols.Player.Move.ReadValue<Vector2>();
-    }
     public void OnMove(InputAction.CallbackContext context)
     {
         input = context.ReadValue<Vector2>();
     }
-
     public void OnRun(InputAction.CallbackContext context)
     {
         isRunning = context.ReadValueAsButton();
@@ -80,13 +76,27 @@ public class PlayerMovement : MonoBehaviour
         isCrouching = context.ReadValueAsButton();
     }
 
+    public bool isJumping;
+    public bool isGrounded() => characterController.isGrounded;
+    [SerializeField] private float jumpForce = 8f;
+        public void OnJump(InputAction.CallbackContext context)
+    {
+        isJumping = context.ReadValueAsButton();
+        if (context.started && characterController.isGrounded)
+        {
+            //velocity.y = jumpheight;
+            //isJumping = true;
+            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpForce);
+            isJumping = true;        
+        }
+    }
+
     // Update is called once per frame
     void Update()
     {
-        Input();
+
         SpeedChange();
         MoveCharacter();
-        
         
     }
     #endregion
@@ -100,28 +110,19 @@ public class PlayerMovement : MonoBehaviour
         else if (isRunning) { targetSpeed = runSpeed; }
         else if (isCrouching) { targetSpeed = crouchSpeed; }
         else { targetSpeed = moveSpeed; }
-        //original code below before change. targetspeed variable serves next to no purpose.
-        //targetSpeed = Mathf.Lerp(targetSpeed, targetSpeed, Time.deltaTime * speedChangeRate);
-        //currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate);
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }
-        else
-        {
-            //changes
-        }
+        else { currentSpeed = moveSpeed * airMultiplier;}
     }
 
-
-
     [Header("Gravity settings")]
-    [SerializeField] private float groundGravity = -0.5f;
-    [SerializeField] private float fallGravity = -9.81f; 
+    [SerializeField] private float groundGravity = -4.5f;
+    [SerializeField] private float fallGravity = -10f; 
     [SerializeField] private float terminalVelocity = -50f;
     [SerializeField] private float airMultiplier = 0.7f;
 
     private void MoveCharacter()
     {
-
         direction = new Vector3(input.x, 0f, input.y).normalized;
         Vector3 movement = direction * currentSpeed;
 
@@ -139,6 +140,8 @@ public class PlayerMovement : MonoBehaviour
         characterController.Move(movement * Time.deltaTime);
         characterController.Move(velocity * Time.deltaTime);
     }
+
+
 
 
 }
