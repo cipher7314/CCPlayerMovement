@@ -1,4 +1,3 @@
-using UnityEditor.Rendering.LookDev;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -13,8 +12,8 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 direction;
     [SerializeField] private float moveSpeed = 6f;
     [SerializeField] public float runSpeed = 9f;
-    [SerializeField] public float walkSpeed = 3f;
-    [SerializeField] public float crouchSpeed = 2f;
+    [SerializeField] public float walkSpeed = 4f;
+    [SerializeField] public float crouchSpeed = 3f;
 
     private float currentSpeed;
     [SerializeField] public float speedChangeRate = 1.7f;
@@ -78,23 +77,22 @@ public class PlayerMovement : MonoBehaviour
 
     public bool isJumping;
     public bool isGrounded() => characterController.isGrounded;
-    [SerializeField] private float jumpForce = 8f;
+    [SerializeField] private float jumpheight = 8f;
         public void OnJump(InputAction.CallbackContext context)
     {
         isJumping = context.ReadValueAsButton();
         if (context.started && characterController.isGrounded)
         {
-            //velocity.y = jumpheight;
-            //isJumping = true;
-            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpForce);
-            isJumping = true;        
+            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpheight);
+            //takes initial grounded gravity of -4.5 as ''5'' and ignoring fallgravity before applying.
+            //to calculate amount of force required  to exit grounded gravity.
         }
     }
 
     // Update is called once per frame
     void Update()
     {
-
+        ApplyGravity();
         SpeedChange();
         MoveCharacter();
         
@@ -112,7 +110,15 @@ public class PlayerMovement : MonoBehaviour
         else { targetSpeed = moveSpeed; }
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }
-        else { currentSpeed = moveSpeed * airMultiplier;}
+        else // Smoothly transition to air speed when not grounded
+        {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * speedChangeRate);}
+        
+        
+        //{ currentSpeed = moveSpeed * airMultiplier;} old values
+
+
+        //Smoothly transition to air speed when not grounded
+        //currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * speedChangeRate);
     }
 
     [Header("Gravity settings")]
@@ -121,11 +127,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float terminalVelocity = -50f;
     [SerializeField] private float airMultiplier = 0.7f;
 
-    private void MoveCharacter()
+    private void ApplyGravity()
     {
-        direction = new Vector3(input.x, 0f, input.y).normalized;
-        Vector3 movement = direction * currentSpeed;
-
         // Apply ground gravity when character controller is grounded
         if (characterController.isGrounded && velocity.y < 0)
         {
@@ -137,8 +140,18 @@ public class PlayerMovement : MonoBehaviour
             velocity.y += fallGravity * 2 * Time.deltaTime;
             velocity.y = Mathf.Max(velocity.y, terminalVelocity);
         }
+        //characterController.Move(velocity * Time.deltaTime);
+        //this breaks gravity when in here. idk why. moved below to MoveCharacter now it works.
+    }
+
+    private void MoveCharacter()
+    {
+        direction = new Vector3(input.x, 0f, input.y).normalized;
+        Vector3 movement = direction * currentSpeed;
+
         characterController.Move(movement * Time.deltaTime);
         characterController.Move(velocity * Time.deltaTime);
+
     }
 
 
