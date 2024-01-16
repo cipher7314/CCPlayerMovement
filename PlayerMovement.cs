@@ -3,8 +3,6 @@ using UnityEngine.InputSystem;
 
 public class PlayerMovement : MonoBehaviour
 {
-
-
     #region Awake / update and functions
     private void Awake()
     {
@@ -22,6 +20,9 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Crouch.started += OnCrouch;
         playercontrols.Player.Crouch.canceled += OnCrouch;
         playercontrols.Player.Jump.started += OnJump;
+        playercontrols.Camera.MouseLook.started += OnMouseLook;
+        playercontrols.Camera.MouseLook.performed += OnMouseLook;
+        playercontrols.Camera.MouseLook.canceled += OnMouseLook;
     }
 
     private void Start()
@@ -50,15 +51,16 @@ public class PlayerMovement : MonoBehaviour
         ApplyGravity();
         SpeedChange();
         MoveCharacter();
-        
+        FpsCamera();
     }
     #endregion
 
-    [Header("Movement values")]
     PlayerControls playercontrols;
     CharacterController characterController;
     private Vector3 velocity;
     private Vector3 direction;
+    
+    [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 6f;
     [SerializeField] private float runSpeed = 9f;
     [SerializeField] private float walkSpeed = 3f;
@@ -101,12 +103,11 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            // Apply air gravity when not grounded and multiply by 2/per second
+            // Apply falling gravity when not grounded and multiply by 2/per second when falling
+            // limit falling velocity to a capped value, determined by terminal velocity float
             velocity.y += fallGravity * 2 * Time.deltaTime;
             velocity.y = Mathf.Max(velocity.y, terminalVelocity);
         }
-        //characterController.Move(velocity * Time.deltaTime);
-        //this breaks gravity when in here. idk why. moved below to MoveCharacter
     }
 
     private void MoveCharacter()
@@ -119,12 +120,19 @@ public class PlayerMovement : MonoBehaviour
         characterController.Move(velocity * Time.deltaTime); //handles gravity calc.
 
     }
-
+    [Header("Camera Settings")]
     public Camera fpsCamera;
     public float cameraSensitivity = 2f;
     public float cameraUpLimit = 90f;
     public float cameraDownLimit = -90f;
+    public Vector2 mouseDelta;
+    private void FpsCamera()
+    {
+        float mouseX = mouseDelta.x * cameraSensitivity * Time.deltaTime;
+        float mouseY = mouseDelta.y * cameraSensitivity * Time.deltaTime;
 
+
+    }
 
 
     private void OnEnable()
@@ -152,5 +160,10 @@ public class PlayerMovement : MonoBehaviour
         isCrouching = context.ReadValueAsButton();
     }
 
+    public void OnMouseLook(InputAction.CallbackContext context)
+    {
+        mouseDelta = context.ReadValue<Vector2>();
+ 
+    }
 
 }
