@@ -20,9 +20,9 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Crouch.started += OnCrouch;
         playercontrols.Player.Crouch.canceled += OnCrouch;
         playercontrols.Player.Jump.started += OnJump;
-        playercontrols.Camera.MouseLook.started += OnMouseLook;
-        playercontrols.Camera.MouseLook.performed += OnMouseLook;
-        playercontrols.Camera.MouseLook.canceled += OnMouseLook;
+
+        playercontrols.Camera.Look.performed += OnLook;
+
     }
 
     private void Start()
@@ -121,17 +121,21 @@ public class PlayerMovement : MonoBehaviour
 
     }
     [Header("Camera Settings")]
-    public Camera fpsCamera;
-    public float cameraSensitivity = 2f;
-    public float cameraUpLimit = 90f;
-    public float cameraDownLimit = -90f;
-    public Vector2 mouseDelta;
+    public Transform fpsCamera;
+    public float sensitivity = 2f;
+    public Vector2 Look;
+    public float xRotation = 0f;
     private void FpsCamera()
     {
-        float mouseX = mouseDelta.x * cameraSensitivity * Time.deltaTime;
-        float mouseY = mouseDelta.y * cameraSensitivity * Time.deltaTime;
+        var MouseX = Look.x;
+        var MouseY = Look.y;
 
+        xRotation -= MouseY * sensitivity * Time.deltaTime;
+        xRotation = Mathf.Clamp(xRotation, -90, 90);
 
+        fpsCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
+        transform.Rotate(Vector3.up * MouseX * sensitivity * Time.deltaTime);
+  
     }
 
 
@@ -159,11 +163,8 @@ public class PlayerMovement : MonoBehaviour
     {
         isCrouching = context.ReadValueAsButton();
     }
-
-    public void OnMouseLook(InputAction.CallbackContext context)
+    public void OnLook(InputAction.CallbackContext context)
     {
-        mouseDelta = context.ReadValue<Vector2>();
- 
+        Look = context.ReadValue<Vector2>();
     }
-
 }
