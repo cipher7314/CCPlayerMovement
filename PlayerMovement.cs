@@ -21,8 +21,6 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Crouch.canceled += OnCrouch;
         playercontrols.Player.Jump.started += OnJump;
 
-        playercontrols.Camera.Look.performed += OnLook;
-
     }
 
     private void Start()
@@ -48,10 +46,17 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        characterController.Move(velocity * Time.deltaTime); //handles gravity calc.
         ApplyGravity();
         SpeedChange();
-        MoveCharacter();
+        //MoveCharacter();
         FpsCamera();
+        FirstPersonMovement();
+
+
+
+
+
     }
     #endregion
 
@@ -110,31 +115,44 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private void MoveCharacter()
+    private void FirstPersonMovement()
     {
-        direction = new Vector3(input.x, 0f, input.y).normalized;
+        Vector3 forward = fpsCamera.forward;
+        Vector3 right = fpsCamera.right;
+
+        forward.y = 0f;
+        right.y = 0f;
+
+        direction = (input.x * right + input.y * forward).normalized;
         Vector3 movement = direction * currentSpeed;
-        characterController.Move(movement * Time.deltaTime); //moves the character.
-        
-        
-        characterController.Move(velocity * Time.deltaTime); //handles gravity calc.
+        characterController.Move(movement * Time.deltaTime);
 
     }
+
+    //private void MoveCharacter()
+    //{   
+    //    direction = new Vector3(input.x, 0f, input.y).normalized;
+    //    Vector3 movement = direction * currentSpeed;
+    //    characterController.Move(movement * Time.deltaTime); //moves the character.
+//
+//
+    //}
     [Header("Camera Settings")]
     public Transform fpsCamera;
-    public float sensitivity = 2f;
+    public float sensitivity = 25f;
     public Vector2 Look;
     public float xRotation = 0f;
     private void FpsCamera()
     {
-        var MouseX = Look.x;
-        var MouseY = Look.y;
+        Look = playercontrols.Player.Look.ReadValue<Vector2>();
+        float mouseX = Look.x;
+        float mouseY = Look.y;
 
-        xRotation -= MouseY * sensitivity * Time.deltaTime;
+        xRotation -= mouseY * sensitivity * Time.deltaTime;
         xRotation = Mathf.Clamp(xRotation, -90, 90);
 
         fpsCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        transform.Rotate(Vector3.up * MouseX * sensitivity * Time.deltaTime);
+        transform.Rotate(Vector3.up * mouseX * sensitivity * Time.deltaTime);
   
     }
 
@@ -163,8 +181,5 @@ public class PlayerMovement : MonoBehaviour
     {
         isCrouching = context.ReadValueAsButton();
     }
-    public void OnLook(InputAction.CallbackContext context)
-    {
-        Look = context.ReadValue<Vector2>();
-    }
+
 }
