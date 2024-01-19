@@ -13,12 +13,16 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Move.started += OnMove;
         playercontrols.Player.Move.canceled += OnMove;
         playercontrols.Player.Move.performed += OnMove;
+
         playercontrols.Player.Run.started += OnRun;
         playercontrols.Player.Run.canceled += OnRun;
+
         playercontrols.Player.Walk.started += OnWalk;
         playercontrols.Player.Walk.canceled += OnWalk;
+
         playercontrols.Player.Crouch.started += OnCrouch;
         playercontrols.Player.Crouch.canceled += OnCrouch;
+        
         playercontrols.Player.Jump.started += OnJump;
 
     }
@@ -29,23 +33,11 @@ public class PlayerMovement : MonoBehaviour
         Cursor.visible = false;
 
     }
-    public bool isJumping;
-    public bool isGrounded() => characterController.isGrounded;
-    [SerializeField] private float jumpForce = 2f;
-    public void OnJump(InputAction.CallbackContext context)
-    {
-        isJumping = context.ReadValueAsButton();
-        if (context.started && characterController.isGrounded)
-        {
-            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpForce);
-            //takes initial grounded gravity of -4.5 as ''5'' and ignoring fallgravity before applying.
-            //to calculate amount of force required  to exit grounded gravity.
-        }
-    }
 
     // Update is called once per frame
     void Update()
     {
+        Jumping();
         characterController.Move(velocity * Time.deltaTime); //handles gravity calc.
         ApplyGravity();
         SpeedChange();
@@ -53,12 +45,20 @@ public class PlayerMovement : MonoBehaviour
         FpsCamera();
         FirstPersonMovement();
 
-
-
-
-
     }
     #endregion
+
+    public bool isJumping;
+    public bool Grounded() => characterController.isGrounded;
+    [SerializeField] private float jumpForce = 2f;
+    private void Jumping()
+    {    if (isJumping && characterController.isGrounded)
+        {
+            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpForce);
+            //takes initial grounded gravity of -4.5 as ''5'' and ignoring fallgravity before applying.
+            //to calculate amount of force required  to exit grounded gravity.
+        }
+    }
 
     PlayerControls playercontrols;
     CharacterController characterController;
@@ -68,8 +68,8 @@ public class PlayerMovement : MonoBehaviour
     [Header("Movement Settings")]
     [SerializeField] private float moveSpeed = 6f;
     [SerializeField] private float runSpeed = 9f;
-    [SerializeField] private float walkSpeed = 3f;
-    [SerializeField] private float crouchSpeed = 2.5f;
+    [SerializeField] private float walkSpeed = 4f;
+    [SerializeField] private float crouchSpeed = 3f;
     private float currentSpeed;
     [SerializeField] private float speedChangeRate = 1.7f;
 
@@ -82,11 +82,11 @@ public class PlayerMovement : MonoBehaviour
     {   
         if(characterController.isGrounded)
         {
-        float targetSpeed; 
+        float targetSpeed;
         if (isWalking) { targetSpeed = walkSpeed; }
         else if (isRunning) { targetSpeed = runSpeed; }
         else if (isCrouching) { targetSpeed = crouchSpeed; }
-        else { targetSpeed = moveSpeed; }
+        else { targetSpeed = input.magnitude > 0.1f ? moveSpeed : 0f; }  
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }   
         else {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * speedChangeRate);}
@@ -117,6 +117,8 @@ public class PlayerMovement : MonoBehaviour
 
     private void FirstPersonMovement()
     {
+        if(input.magnitude > 0.1)
+        {
         Vector3 forward = fpsCamera.forward;
         Vector3 right = fpsCamera.right;
 
@@ -126,7 +128,7 @@ public class PlayerMovement : MonoBehaviour
         direction = (input.x * right + input.y * forward).normalized;
         Vector3 movement = direction * currentSpeed;
         characterController.Move(movement * Time.deltaTime);
-
+        }
     }
 
     //private void MoveCharacter()
@@ -139,7 +141,7 @@ public class PlayerMovement : MonoBehaviour
     //}
     [Header("Camera Settings")]
     public Transform fpsCamera;
-    public float sensitivity = 25f;
+    public float sensitivity = 10f;
     public Vector2 Look;
     public float xRotation = 0f;
     private void FpsCamera()
@@ -180,6 +182,11 @@ public class PlayerMovement : MonoBehaviour
     public void OnCrouch(InputAction.CallbackContext context)
     {
         isCrouching = context.ReadValueAsButton();
+    }
+
+    public void OnJump(InputAction.CallbackContext context)
+    {
+        isJumping = context.ReadValueAsButton();
     }
 
 }
