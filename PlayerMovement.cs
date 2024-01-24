@@ -33,6 +33,8 @@ public class PlayerMovement : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
+        characterController.height = standHeight;
+
     }
 
     // Update is called once per frame
@@ -45,9 +47,55 @@ public class PlayerMovement : MonoBehaviour
         //MoveCharacter();
         FpsCamera();
         FirstPersonMovement();
+        CrouchHandler();
+        
 
     }
     #endregion
+
+    [Header("Parameters")]
+    public float lerpTime = 0.5f;
+    public float crouchHeight = 0.7f;
+    public float standHeight = 2.0f;
+
+    private void CrouchHandler()
+    {   
+        if (isCrouching)
+        {
+            StartCoroutine(Crouch());
+        }
+    }
+
+    private IEnumerator Crouch()
+    {
+        float targetHeight = isCrouching ? crouchHeight : standHeight;
+
+        // Check if crouching and there's an obstruction above
+        if (isCrouching && Physics.Raycast(characterController.transform.position, Vector3.up, 1f))
+        {
+            while (Physics.Raycast(characterController.transform.position, Vector3.up, 1f))
+            {
+                // If there's an obstruction, keep the crouch state and set targetSpeed to crouchSpeed
+                targetHeight = crouchHeight;
+                currentSpeed = crouchSpeed;  // Set targetSpeed to crouchSpeed
+                yield return null; // Continue checking for obstruction
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
+        else
+        {
+            // If there's no obstruction, update to standing state
+            targetHeight = standHeight;
+        }
+        float currentHeight = characterController.height;
+        // Adjust height
+        currentHeight = Mathf.Lerp(currentHeight, targetHeight, lerpTime * Time.deltaTime);
+        characterController.height = currentHeight;
+
+        // Ensure the final value is set
+        characterController.height = targetHeight;
+    }
+
 
     public bool isJumping;
     public bool Grounded() => characterController.isGrounded;
@@ -73,6 +121,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float crouchSpeed = 3f;
     private float currentSpeed;
     [SerializeField] private float speedChangeRate = 1.7f;
+    [SerializeField] private float airSpeedChangeRate = 5f;
 
     public Vector2 input;
     public bool isRunning; 
@@ -90,7 +139,7 @@ public class PlayerMovement : MonoBehaviour
         else { targetSpeed = input.magnitude > 0.1f ? moveSpeed : 0f; }  
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }   
-        else {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * speedChangeRate);}
+        else {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * airSpeedChangeRate);}
         // Smoothly transition to air speed when not grounded 
     }
 
@@ -98,7 +147,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float groundGravity = -4.5f;
     [SerializeField] private float fallGravity = -10f; 
     [SerializeField] private float terminalVelocity = -50f;
-    [SerializeField] private float airMultiplier = 0.7f;
+    [SerializeField] private float airMultiplier = 0.8f;
 
     private void ApplyGravity()
     {
