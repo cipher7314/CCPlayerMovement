@@ -2,13 +2,61 @@ using UnityEngine;
 using System.Collections;
 using UnityEngine.InputSystem;
 
-public class PlayerMovement : MonoBehaviour
+public class PlayerController : MonoBehaviour
 {
+    [Header("debug data feedback")]
+    PlayerControls playercontrols;
+    CharacterController controller;
+    private Vector3 velocity; //gravity is a constant
+    private Vector3 direction; //movement direction in horizontal plane
+    private float currentSpeed; //variable for speedchange func block
+    
+    [Header("Movement Settings")]
+    [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float runSpeed = 8f;
+    [SerializeField] private float walkSpeed = 2.5f;
+    [SerializeField] private float crouchSpeed = 2.5f;
+    [SerializeField] private float speedChangeRate = 1f;
+    [SerializeField] private float airSpeedChangeRate = 5f;
+
+    [Header("Jump Settings")]
+    [SerializeField] private float jumpForce = 1.2f;
+
+    [Header("Gravity settings")]
+    [SerializeField] private float groundGravity = -4.5f;
+    [SerializeField] private float fallGravity = -10f; 
+    [SerializeField] private float terminalVelocity = -50f;
+    //[SerializeField] private float airMultiplier = 0.8f;
+
+    [Header("Input Actions = Keys")]
+    public Vector2 input;
+    public bool Running; 
+    public bool Walking;
+    public bool Crouching;
+    public bool Jumping;
+    public bool Grounded => controller.isGrounded;
+    public bool CrouchOverHead;
+
+    [Header("crouching settings")]
+    public float heightAdjustRate = 10f;
+    public float crouchHeight = 0.7f;
+    public float standHeight = 2.0f;
+
+    [Header("Camera Settings")]
+    public Transform fpsCamera;
+    public Vector2 look;
+    public float sensitivity = 400f;
+    public float xRotation = 0f;
+    // there's a secret variable inside inputAction map under look>processor>XnY values 0.05
+
+
     #region Awake / update and functions
     private void Awake()
     {
         playercontrols = new PlayerControls();
-        characterController = GetComponent<CharacterController>();
+        controller = GetComponent<CharacterController>();
+
+        //playercontrols.Player.Look.performed += OnLook; buggy read raw values instead
 
         // Set the player control input callbacks
         playercontrols.Player.Move.started += OnMove;
@@ -25,6 +73,7 @@ public class PlayerMovement : MonoBehaviour
         playercontrols.Player.Crouch.canceled += OnCrouch;
         
         playercontrols.Player.Jump.started += OnJump;
+        playercontrols.Player.Jump.canceled += OnJump;
 
     }
 
@@ -33,15 +82,16 @@ public class PlayerMovement : MonoBehaviour
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        characterController.height = standHeight;
+        controller.height = standHeight;
 
     }
 
     // Update is called once per frame
     void Update()
     {
-        Jumping();
-        characterController.Move(velocity * Time.deltaTime); //handles gravity calc.
+
+        HandleJump();
+        controller.Move(velocity * Time.deltaTime); //handles gravity calc.
         ApplyGravity();
         SpeedChange();
         //MoveCharacter();
@@ -53,14 +103,9 @@ public class PlayerMovement : MonoBehaviour
     }
     #endregion
 
-    [Header("Parameters")]
-    public float lerpTime = 0.5f;
-    public float crouchHeight = 0.7f;
-    public float standHeight = 2.0f;
-
     private void CrouchHandler()
     {   
-        if (isCrouching)
+        if (Crouching)
         {
             StartCoroutine(Crouch());
         }
@@ -68,91 +113,59 @@ public class PlayerMovement : MonoBehaviour
 
     private IEnumerator Crouch()
     {
-        float targetHeight = isCrouching ? crouchHeight : standHeight;
-
+        float targetHeight = Crouching ? crouchHeight : standHeight;
         // Check if crouching and there's an obstruction above
-        if (isCrouching && Physics.Raycast(characterController.transform.position, Vector3.up, 1f))
+        if (Crouching && Physics.Raycast(controller.transform.position, Vector3.up, 1f))
         {
-            while (Physics.Raycast(characterController.transform.position, Vector3.up, 1f))
-            {
-                // If there's an obstruction, keep the crouch state and set targetSpeed to crouchSpeed
-                targetHeight = crouchHeight;
-                currentSpeed = crouchSpeed;  // Set targetSpeed to crouchSpeed
-                yield return null; // Continue checking for obstruction
-                yield return new WaitForSeconds(0.1f);
-            }
+            CrouchOverHead = true;
+            // If there's an obstruction, keep the crouch state and set targetSpeed to crouchSpeed
+            targetHeight = crouchHeight;
+            yield return null; // Continue checking for obstruction
+            yield return new WaitForSeconds(0.1f);
         }
         else
         {
+            CrouchOverHead = false;
             // If there's no obstruction, update to standing state
             targetHeight = standHeight;
         }
-        float currentHeight = characterController.height;
+        
+        float currentHeight = controller.height;
         // Adjust height
-        currentHeight = Mathf.Lerp(currentHeight, targetHeight, lerpTime * Time.deltaTime);
-        characterController.height = currentHeight;
+        currentHeight = Mathf.Lerp(currentHeight, targetHeight, heightAdjustRate * Time.deltaTime);
+        controller.height = currentHeight;
 
         // Ensure the final value is set
-        characterController.height = targetHeight;
+        controller.height = targetHeight;
     }
-
-
-    public bool isJumping;
-    public bool Grounded() => characterController.isGrounded;
-    [SerializeField] private float jumpForce = 2f;
-    private void Jumping()
-    {    if (isJumping && characterController.isGrounded)
+    private void HandleJump()
+    {    if (Jumping && Grounded)
         {
-            velocity.y = Mathf.Sqrt(-5.0f * fallGravity * jumpForce);
+            velocity.y = Mathf.Sqrt(-4.5f * fallGravity * jumpForce);
             //takes initial grounded gravity of -4.5 as ''5'' and ignoring fallgravity before applying.
             //to calculate amount of force required  to exit grounded gravity.
         }
     }
 
-    PlayerControls playercontrols;
-    CharacterController characterController;
-    private Vector3 velocity;
-    private Vector3 direction;
-    
-    [Header("Movement Settings")]
-    [SerializeField] private float moveSpeed = 6f;
-    [SerializeField] private float runSpeed = 9f;
-    [SerializeField] private float walkSpeed = 4f;
-    [SerializeField] private float crouchSpeed = 3f;
-    private float currentSpeed;
-    [SerializeField] private float speedChangeRate = 1.7f;
-    [SerializeField] private float airSpeedChangeRate = 5f;
-
-    public Vector2 input;
-    public bool isRunning; 
-    public bool isWalking;
-    public bool isCrouching;
-
     private void SpeedChange()
     {   
-        if(characterController.isGrounded)
+        if(Grounded)
         {
         float targetSpeed;
-        if (isWalking) { targetSpeed = walkSpeed; }
-        else if (isRunning) { targetSpeed = runSpeed; }
-        else if (isCrouching) { targetSpeed = crouchSpeed; }
+        if (Walking) { targetSpeed = walkSpeed; }
+        else if (Running) { targetSpeed = runSpeed; }
+        else if (Crouching && CrouchOverHead) { targetSpeed = crouchSpeed; } // hopefully CrouchOverHead works
         else { targetSpeed = input.magnitude > 0.1f ? moveSpeed : 0f; }  
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }   
-        else {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed * airMultiplier, Time.deltaTime * airSpeedChangeRate);}
-        // Smoothly transition to air speed when not grounded 
+        else {currentSpeed = Mathf.Lerp(currentSpeed, moveSpeed, Time.deltaTime * airSpeedChangeRate);}
+        // Smoothly transition to air speed when not grounded //airMultiplier * 
     }
-
-    [Header("Gravity settings")]
-    [SerializeField] private float groundGravity = -4.5f;
-    [SerializeField] private float fallGravity = -10f; 
-    [SerializeField] private float terminalVelocity = -50f;
-    [SerializeField] private float airMultiplier = 0.8f;
 
     private void ApplyGravity()
     {
         // Apply ground gravity when character controller is grounded
-        if (characterController.isGrounded && velocity.y < 0)
+        if (Grounded && velocity.y < 0)
         {
             velocity.y = groundGravity;
         }
@@ -177,7 +190,7 @@ public class PlayerMovement : MonoBehaviour
 
         direction = (input.x * right + input.y * forward).normalized;
         Vector3 movement = direction * currentSpeed;
-        characterController.Move(movement * Time.deltaTime);
+        controller.Move(movement * Time.deltaTime);
         }
     }
 
@@ -185,58 +198,55 @@ public class PlayerMovement : MonoBehaviour
     //{   
     //    direction = new Vector3(input.x, 0f, input.y).normalized;
     //    Vector3 movement = direction * currentSpeed;
-    //    characterController.Move(movement * Time.deltaTime); //moves the character.
-//
-//
+    //    controller.Move(movement * Time.deltaTime); //moves the character.
+    //
+    //
     //}
-    [Header("Camera Settings")]
-    public Transform fpsCamera;
-    public float sensitivity = 10f;
-    public Vector2 Look;
-    public float xRotation = 0f;
+
     private void FpsCamera()
     {
-        Look = playercontrols.Player.Look.ReadValue<Vector2>();
-        float mouseX = Look.x;
-        float mouseY = Look.y;
+        look = playercontrols.Player.Look.ReadValue<Vector2>();
+        float mouseX = look.x;
+        float mouseY = look.y;
 
         xRotation -= mouseY * sensitivity * Time.deltaTime;
-        xRotation = Mathf.Clamp(xRotation, -90, 90);
+        xRotation = Mathf.Clamp(xRotation, -85, 85); //looking straight down stops movement?
 
         fpsCamera.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
         transform.Rotate(Vector3.up * mouseX * sensitivity * Time.deltaTime);
-  
     }
-
 
     private void OnEnable()
     {
-        playercontrols.Enable();
+        playercontrols.Player.Enable();
     }
     private void OnDisable()
     {
-        playercontrols.Disable();
+        playercontrols.Player.Disable();
     }
+    //public void OnLook(InputAction.CallbackContext context)
+    //{
+    //    look = context.ReadValue<Vector2>(); // semi redundant read raw values instead
+    //}
     public void OnMove(InputAction.CallbackContext context)
     {
         input = context.ReadValue<Vector2>();
     }
     public void OnRun(InputAction.CallbackContext context)
     {
-        isRunning = context.ReadValueAsButton();
+        Running = context.ReadValueAsButton();
     }
     public void OnWalk(InputAction.CallbackContext context)
     {
-        isWalking = context.ReadValueAsButton();
+        Walking = context.ReadValueAsButton();
     }
     public void OnCrouch(InputAction.CallbackContext context)
     {
-        isCrouching = context.ReadValueAsButton();
+        Crouching = context.ReadValueAsButton();
     }
-
     public void OnJump(InputAction.CallbackContext context)
     {
-        isJumping = context.ReadValueAsButton();
+        Jumping = context.ReadValueAsButton();
     }
 
 }
