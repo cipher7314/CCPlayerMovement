@@ -38,8 +38,8 @@ public class PlayerController : MonoBehaviour
     public bool ObstacleAbove;
 
     [Header("crouching settings")]
-    public float heightAdjustRate = 0.5f;
-    public float crouchHeight = 0.7f;
+    public float heightAdjustRate = 5f;
+    public float crouchHeight = 1f;
     public float standHeight = 2f;
 
     [Header("Camera Settings")]
@@ -89,7 +89,6 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
         HandleJump();
         controller.Move(velocity * Time.deltaTime); //handles gravity calc.
         ApplyGravity();
@@ -102,38 +101,22 @@ public class PlayerController : MonoBehaviour
 
     }
     #endregion
-
     private void CrouchHandler()
-    {   
-        if (Crouching)
-        {
-            StartCoroutine(CrouchStand());
-
-        }
-    }
-
-    private IEnumerator CrouchStand()
     {
-        if (Crouching && Physics.Raycast(controller.transform.position, Vector3.up, 1f))
-        {
-            // If an obstacle is detected above, keep the player in crouch height
-            yield return new WaitForSeconds(0.05f);
-        }
-    	float initialHeight = controller.height;
-        float targetHeight = Crouching ? crouchHeight : standHeight;
-        // Perform the height adjustment gradually
-        float timeElapsed = 0;
-        while (timeElapsed < heightAdjustRate)
-        {
-            controller.height = Mathf.Lerp(initialHeight, targetHeight, timeElapsed / heightAdjustRate);
-            timeElapsed += Time.deltaTime;
-            yield return null;
-        }
+        float targetHeight = Crouching || ObstacleAbove ? crouchHeight : standHeight;
+        float initialHeight = controller.height;
+        controller.height = Mathf.Lerp(initialHeight, targetHeight, heightAdjustRate * Time.deltaTime); 
 
-        // Ensure the final height matches the target height
-        controller.height = targetHeight;
+        if (Crouching && Grounded)
+        {
+            StartCoroutine(RayCastAbove());
+        }
+    }   
+    private IEnumerator RayCastAbove()
+    {
+        ObstacleAbove = Physics.Raycast(controller.transform.position, Vector3.up, 1f);
+        yield return new WaitForSeconds(0.05f); // Delay to reduce CPU load
     }
-
     private void HandleJump()
     {    if (Jumping && Grounded)
         {
@@ -150,7 +133,7 @@ public class PlayerController : MonoBehaviour
         float targetSpeed;
         if (Walking) { targetSpeed = walkSpeed; }
         else if (Running) { targetSpeed = runSpeed; }
-        else if (Crouching && ObstacleAbove) { targetSpeed = crouchSpeed; } // hopefully CrouchOverHead works
+        else if (Crouching || ObstacleAbove) { targetSpeed = crouchSpeed; } // Obstacle above works. with an OR statement
         else { targetSpeed = input.magnitude > 0.1f ? moveSpeed : 0f; }  
         currentSpeed = Mathf.Lerp(currentSpeed, targetSpeed, Time.deltaTime * speedChangeRate); 
         }   
